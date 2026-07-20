@@ -1,26 +1,54 @@
 name: Android CI
 
 on:
+  # 允许你从 GitHub 网页手动触发工作流
   workflow_dispatch:
+  # 当推送到 main 或 master 分支时自动触发（根据你的默认分支调整）
   push:
+    branches: [ "main", "master" ]
+  # 也可以添加 pull_request 触发，按需启用
+  # pull_request:
+  #   branches: [ "main" ]
+
+# 设置全局权限，避免因权限不足导致 git 操作失败
+permissions:
+  contents: read   # 只读权限足够 checkout 和构建，如果需要上传 release 则需 write
 
 jobs:
   build:
     runs-on: ubuntu-latest
+
     steps:
-    - uses: actions/checkout@v5  # 从 v3 升级到 v5
-    - name: set up JDK 11
-      uses: actions/setup-java@v4  # 从 v3 升级到 v4
-      with:
-        java-version: '11'
-        distribution: 'temurin'
-        cache: gradle
-    - name: Grant execute permission for gradlew
-      run: chmod +x gradlew
-    - name: Build with Gradle
-      run: ./gradlew assembleDebug
-    - name: Upload APK
-      uses: actions/upload-artifact@v4  # 从 v3 升级到 v4
-      with:
-        name: app-debug
-        path: app/build/outputs/apk/debug/*.apk
+      # 1. 检出代码（使用最新版 v5，原生支持 Node.js 24）
+      - name: Checkout repository
+        uses: actions/checkout@v5
+        with:
+          # 如果仓库有子模块且不需要，可以关闭；若需要子模块，请确保 .gitmodules 正确
+          submodules: false
+          # 如果需要完整历史记录（例如用于版本号生成），可以设置 fetch-depth: 0
+          # fetch-depth: 0
+
+      # 2. 设置 JDK 11（使用最新版 v5）
+      - name: Set up JDK 11
+        uses: actions/setup-java@v5
+        with:
+          java-version: '11'
+          distribution: 'temurin'
+          cache: gradle   # 启用 Gradle 依赖缓存，加速构建
+
+      # 3. 为 gradlew 添加执行权限（Linux/macOS 必需）
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+
+      # 4. 执行 Gradle 构建，生成 Debug APK
+      - name: Build with Gradle
+        run: ./gradlew assembleDebug
+
+      # 5. 上传生成的 APK 作为工件（Artifact）
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-debug
+          path: app/build/outputs/apk/debug/*.apk
+          # 若你的工作流中有多个步骤向同一工件上传，请使用不同的 name
+          # 这里只有一个 APK，无需额外配置
